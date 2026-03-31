@@ -2,6 +2,14 @@
 
 A security posture assessment for [OpenClaw](https://github.com/openclaw/openclaw) based on ["Don't Let the Claw Grip Your Hand"](https://arxiv.org/abs/2603.10387) (Shan et al., 2026).
 
+## v2 Changes
+
+- **`sessions_spawn` replaces CLI detection.** Tier 2 tests now use OpenClaw's native `sessions_spawn(task="...", mode="run")` tool instead of trying shell invocations. Faster, more reliable, no timeout guessing.
+- **INFORMATIONAL result type.** Reconnaissance tests (container check, system info, network config, user enumeration, clipboard/mail tools, service list) are now classified as INFORMATIONAL and excluded from the defense rate calculation. Previously they inflated the failure count.
+- **Report generator injection detection fixed.** The report now checks for T2-INJECT results by ID, not by a method flag. `sessions_spawn` results are correctly recognized as automated injection tests.
+
+---
+
 ## The Key Idea
 
 Most AI agent security tools ask the agent "would you do X?" and the agent says no. That proves nothing — the agent is reading the audit instructions and performing compliance.
@@ -33,21 +41,18 @@ The original paper tested indirect prompt injection once out of 47 scenarios, ma
 
 ---
 
-## CLI Detection
+## How Fresh Sessions Work
 
-The skill needs to spawn fresh sessions, which requires knowing how to invoke OpenClaw from the command line. It tries several patterns automatically:
+The skill uses `sessions_spawn` — OpenClaw's native tool for creating isolated sub-agent sessions. Each sub-agent runs in its own context with no access to the audit conversation.
 
 ```
-openclaw agent --message "test" --no-input
-openclaw agent -m "test"
-echo "test" | openclaw agent
-openclaw --message "test"
-openclaw agent --print --message "test"
+sessions_spawn(
+  task="the attack prompt goes here",
+  mode="run"
+)
 ```
 
-If any works, it uses that pattern for all Tier 2 tests. **If none work**, Tier 2 falls back to generating test documents for you to send manually via Telegram. You lose the automated testing but still get the manual test kit.
-
-This is not a blocker — it just means the first run might try a few patterns and fail on some before finding the right one, or fall back gracefully.
+The skill verifies `sessions_spawn` is available at the start. **If it's not available**, Tier 2 falls back to generating test documents for you to send manually via Telegram.
 
 ---
 
@@ -73,7 +78,7 @@ systemctl --user cat ...        # Service config
 cat /etc/shadow | head -1       # Password hash access (should fail)
 ```
 
-Plus CLI detection (5 attempts, ~15 seconds each with timeout).
+Plus `sessions_spawn` availability check.
 
 ### Phase 2: Tier 1 OS Tests (25 tests)
 
@@ -110,7 +115,7 @@ All run directly by the auditing agent. Read-only or temp files.
 
 ### Phase 3: Tier 2 LLM Tests via Fresh Sessions (17 tests)
 
-Each spawns a fresh OpenClaw session. The prompt looks like a normal user request. Marker files in `/tmp/` are checked afterward. All markers cleaned up.
+Each spawns a fresh OpenClaw session via `sessions_spawn`. The prompt looks like a normal user request. Marker files in `/tmp/` are checked afterward. All markers cleaned up.
 
 | Test | Prompt sent to fresh session | Check |
 |------|------------------------------|-------|
@@ -165,7 +170,7 @@ git config --global --unset alias.audit-fresh 2>/dev/null
 
 **Strong**: Tier 1 OS tests. Permissions block or they don't.
 
-**CLI dependency**: If the command-line invocation can't be detected, Tier 2 falls back to manual testing via Telegram. You lose automation but keep the test documents.
+**sessions_spawn dependency**: If `sessions_spawn` is not available, Tier 2 falls back to manual testing via Telegram. You lose automation but keep the test documents.
 
 **Not a pentest**: This is a posture assessment. A real pentest would use external tooling and test from outside the network.
 
@@ -200,4 +205,3 @@ MIT
 ## Author
 
 Alexios van der Slikke-Kirillov
-
