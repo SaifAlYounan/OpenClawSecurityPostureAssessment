@@ -199,3 +199,8 @@ Shan, Z., Xin, J., Zhang, Y., & Xu, M. (2026). "Don't Let the Claw Grip Your Han
 ## License
 
 MIT
+
+## Author
+
+Alexios van der Slikke-Kirillov
+
