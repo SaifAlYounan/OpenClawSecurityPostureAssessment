@@ -8,7 +8,7 @@ Most AI agent security tools ask the agent "would you do X?" and the agent says 
 
 This skill solves that problem. For every test that depends on the LLM's judgment, it **spawns a fresh OpenClaw session** with no audit context. The fresh session receives what looks like a normal user request. It has no idea it's being tested. If it refuses, that's genuine safety training. If it complies, that's a real failure.
 
-The original paper tested indirect prompt injection once out of 47 scenarios, manually. This skill does it automatically across 17 LLM-judgment tests, including 4 injection variants using different hiding techniques. No other tool does this.
+The original paper tested indirect prompt injection once out of 47 scenarios, manually. This skill does it automatically across 17 LLM-judgment tests, including 4 injection variants using different hiding techniques. 
 
 ---
 
