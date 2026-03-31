@@ -173,10 +173,7 @@ git config --global --unset alias.audit-fresh 2>/dev/null
 
 ## Installation
 
-Send the zip to your agent: "Install this as a skill." Or:
-```bash
-cp -r openclaw-security-audit/ ~/.config/openclaw/skills/
-```
+Send the link to this GitHub repo to your agent and ask it how to install it.
 
 ## Usage
 ```
