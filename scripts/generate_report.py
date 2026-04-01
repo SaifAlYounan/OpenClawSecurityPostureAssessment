@@ -114,6 +114,81 @@ def html(data):
 <h2>Defenses</h2>
 <table><thead><tr><th>Defense</th><th>Description</th><th>Who</th><th>Command</th></tr></thead><tbody>{dr}</tbody></table>
 
+<h2>What To Fix — Priority Order</h2>
+<p style="font-size:14px;color:#6b7280;margin-bottom:16px">Fixes are ordered by impact. The first fix blocks the most attack paths. Each shows the exact command and which failures it addresses.</p>
+
+<div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:12px 0">
+<h3 style="margin:0 0 8px">Priority 1: Restrict Outbound Network</h3>
+<p style="font-size:14px"><b>Impact:</b> Blocks all exfiltration — even if every other defense fails, stolen data can't leave the server.</p>
+<p style="font-size:14px"><b>Who runs it:</b> You, as root. The agent cannot undo this.</p>
+<p style="font-size:14px"><b>Addresses:</b> EXFIL-001, EXFIL-002, EXFIL-003, RESOURCE-001, ACCESS-001, and all attack chains ending in data exfiltration.</p>
+<pre style="background:#1f2937;color:#e5e7eb;padding:12px;border-radius:6px;font-size:12px;margin:8px 0"># Find IPs of services your agent needs:
+dig +short api.anthropic.com
+dig +short api.telegram.org
+
+# Then as root (replace AGENT_USER and IPs):
+AGENT_UID=$(id -u AGENT_USER)
+sudo iptables -A OUTPUT -o lo -m owner --uid-owner $AGENT_UID -j ACCEPT
+sudo iptables -A OUTPUT -p udp --dport 53 -m owner --uid-owner $AGENT_UID -j ACCEPT
+sudo iptables -A OUTPUT -d ANTHROPIC_IP/32 -m owner --uid-owner $AGENT_UID -j ACCEPT
+sudo iptables -A OUTPUT -d TELEGRAM_IP/32 -m owner --uid-owner $AGENT_UID -j ACCEPT
+sudo iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -m owner --uid-owner $AGENT_UID -j ACCEPT
+sudo iptables -A OUTPUT -m owner --uid-owner $AGENT_UID -j DROP
+sudo apt-get install -y iptables-persistent &amp;&amp; sudo netfilter-persistent save</pre>
+<p style="font-size:13px;color:#6b7280"><b>Verify:</b> As agent user, <code>curl httpbin.org</code> should fail.</p>
+</div>
+
+<div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:12px 0">
+<h3 style="margin:0 0 8px">Priority 2: Enable HITL Defense Layer</h3>
+<p style="font-size:14px"><b>Impact:</b> Adds pattern-matching, semantic analysis, and approval gating. Paper shows this improves Claude from 83% to 91.5%.</p>
+<p style="font-size:14px"><b>Who runs it:</b> You, as root (persistent). Or the agent can set it for the session (weaker — agent can undo).</p>
+<p style="font-size:14px"><b>Addresses:</b> Evasion attacks, encoded payloads, suspicious file operations.</p>
+<pre style="background:#1f2937;color:#e5e7eb;padding:12px;border-radius:6px;font-size:12px;margin:8px 0"># As root:
+sudo systemctl edit --force openclaw-gateway.service
+# Add under [Service]:
+#   Environment="OPENCLAW_HITL_POLICY=strict"
+#   Environment="OPENCLAW_HITL_ENFORCE_ALLOWLIST=1"
+#   Environment="OPENCLAW_HITL_SEMANTIC_JUDGE=1"
+#   Environment="OPENCLAW_HITL_SANDBOX_REQUIRED=1"
+#   Environment="OPENCLAW_HITL_APPROVAL_MODE=deny"
+sudo systemctl daemon-reload
+sudo systemctl --user -M AGENT_USER@ restart openclaw-gateway.service</pre>
+<p style="font-size:13px;color:#6b7280"><b>Verify:</b> <code>env | grep -i hitl</code> should show the variables.</p>
+</div>
+
+<div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:12px 0">
+<h3 style="margin:0 0 8px">Priority 3: Container Isolation</h3>
+<p style="font-size:14px"><b>Impact:</b> Eliminates sandbox escape entirely. The agent can only see mounted directories — everything else doesn't exist.</p>
+<p style="font-size:14px"><b>Who runs it:</b> You. Requires Docker/Podman setup.</p>
+<p style="font-size:14px"><b>Addresses:</b> SANDBOX-001, SANDBOX-002, SANDBOX-003, PRIVESC-001, and all chain attacks using file access outside workspace.</p>
+<pre style="background:#1f2937;color:#e5e7eb;padding:12px;border-radius:6px;font-size:12px;margin:8px 0">docker run -d --name openclaw-agent \
+  --user $(id -u AGENT_USER):$(id -g AGENT_USER) \
+  --read-only --tmpfs /tmp \
+  -v /home/AGENT_USER/workspace:/workspace:rw \
+  -v /home/AGENT_USER/.openclaw:/config:ro \
+  --network=restricted openclaw-image</pre>
+<p style="font-size:13px;color:#6b7280"><b>Effort:</b> High — requires migrating your OpenClaw setup to Docker. But the strongest fix for sandbox escape.</p>
+</div>
+
+<div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:12px 0">
+<h3 style="margin:0 0 8px">Priority 4: File Permissions &amp; Startup Protection</h3>
+<p style="font-size:14px"><b>Impact:</b> Restricts what the agent can read and prevents .bashrc/cron persistence.</p>
+<p style="font-size:14px"><b>Who runs it:</b> You, as root.</p>
+<pre style="background:#1f2937;color:#e5e7eb;padding:12px;border-radius:6px;font-size:12px;margin:8px 0"># Lock down directories
+sudo chmod 700 /root
+sudo chmod 600 /path/to/config/with/api/key
+
+# Make .bashrc immutable (agent can't modify it)
+sudo chattr +i /home/AGENT_USER/.bashrc
+# To edit later: sudo chattr -i, edit, sudo chattr +i</pre>
+<p style="font-size:13px;color:#6b7280"><b>Addresses:</b> PERSIST-002, CRED-001, CRED-002, credential harvesting chains.</p>
+</div>
+
+<div class="ab" style="margin-top:24px">
+<b>Want guided step-by-step help applying these fixes?</b><br>
+Install the <a href="https://github.com/SaifAlYounan/openclaw-hardening">openclaw-hardening</a> skill and say <b>"apply the fixes from my security audit."</b> It walks you through each fix one at a time, explains every command in plain language, and verifies each fix worked before moving to the next.
+</div>
+
 <h2>Manual Test Kit</h2>
 <div class="ay"><b>Re-test via Telegram after fixes.</b></div>
 {kr}
@@ -122,9 +197,6 @@ def html(data):
 <div class="gs"><b>3.</b> SSH: run check command. "No such file" = PASS.</div>
 <div class="gs"><b>4.</b> Clean: <code>rm -f /tmp/injection_test_*.txt</code></div>
 
-<h2>Applying Fixes</h2>
-<div class="gs"><b>Agent fixes:</b> Say "approved." Agent can also undo — weaker.</div>
-<div class="gs"><b>Root fixes:</b> SSH as root, paste command. Agent cannot undo.</div>
 <hr style="margin:32px 0"><p style="color:#9ca3af;font-size:12px">OpenClaw Security Audit | Shan, Xin, Zhang & Xu (2026) | arXiv:2603.10387</p>
 </body></html>"""
 
