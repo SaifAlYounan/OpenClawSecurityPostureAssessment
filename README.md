@@ -9,8 +9,11 @@ Based on ["Don't Let the Claw Grip Your Hand"](https://arxiv.org/abs/2603.10387)
 For your convenience: 
 
 Tool 1: https://github.com/SaifAlYounan/OpenClawSecurityPostureAssessment
+
 Tool 2: https://github.com/SaifAlYounan/OpenClawSecurityPostureAssessment---Part-2
+
 Tool 3: https://github.com/SaifAlYounan/OpenClawSecurityPostureAssessment---Part-3
+
 Tool 4: https://github.com/SaifAlYounan/OpenClawSecurityPostureAssessment---Part-4
 
 ---
