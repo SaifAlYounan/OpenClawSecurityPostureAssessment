@@ -2,6 +2,8 @@
 
 **Part of the [OpenClaw Security Suite](#the-suite) — Tool 1 of 4**
 
+> **⚠️ Proof of concept.** This is an open-source posture assessment tool, not a professional penetration test. A passing score means it passed these specific tests — not that your agent is secure. The production version is whatever you make of it — fork it, add your own scenarios, harden it, make it yours. This repo exists to show what's possible.
+
 Scans your OpenClaw agent's security posture against 47 adversarial scenarios. Tests OS-level controls directly and LLM-judgment through blind fresh sessions. Outputs an HTML report with findings, fix recommendations, and an injection test kit.
 
 Based on ["Don't Let the Claw Grip Your Hand"](https://arxiv.org/abs/2603.10387) (Shan et al., 2026).
